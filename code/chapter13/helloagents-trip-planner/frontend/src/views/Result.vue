@@ -78,6 +78,7 @@
                   <span class="info-label">💡 建议:</span>
                   <span class="info-value">{{ tripPlan.overall_suggestions }}</span>
                 </div>
+                <p class="generated-time">数据生成时间：{{ generatedAt }}</p>
               </div>
             </a-card>
 
@@ -111,6 +112,21 @@
           <!-- 右侧:地图 -->
           <div class="right-map">
             <a-card id="map" title="📍 景点地图" :bordered="false" class="map-card">
+              <!-- 地图图例 -->
+              <div v-if="tripPlan && tripPlan.days" class="map-legend">
+                <div
+                  v-for="(day, index) in tripPlan.days"
+                  :key="index"
+                  class="legend-item"
+                >
+                  <span
+                    class="legend-dot"
+                    :style="{ backgroundColor: DAY_COLORS[index % DAY_COLORS.length] }"
+                  ></span>
+                  <span class="legend-text">第{{ index + 1 }}天</span>
+                </div>
+              </div>
+
               <div id="amap-container" style="width: 100%; height: 100%"></div>
             </a-card>
           </div>
@@ -317,6 +333,7 @@ import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 import type { TripPlan } from '@/types'
 
+const DAY_COLORS = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8']
 const router = useRouter()
 const tripPlan = ref<TripPlan | null>(null)
 const editMode = ref(false)
@@ -325,6 +342,7 @@ const attractionPhotos = ref<Record<string, string>>({})
 const activeSection = ref('overview')
 const activeDays = ref<number[]>([0]) // 默认展开第一天
 let map: any = null
+const generatedAt = new Date().toLocaleString('zh-CN')
 
 onMounted(async () => {
   const data = sessionStorage.getItem('tripPlan')
@@ -839,9 +857,17 @@ const initMap = async () => {
     })
 
     // 创建地图实例
+    // 获取第一个有坐标的景点位置作为地图中心
+    const firstDay = tripPlan.value?.days[0]
+    const firstAttraction = firstDay?.attractions?.find(
+      a => a.location?.longitude && a.location?.latitude
+    )
+    const center = firstAttraction 
+      ? [firstAttraction.location.longitude, firstAttraction.location.latitude]
+      : [116.397128, 39.916527]  // 找不到时才用北京作为默认值
     map = new AMap.Map('amap-container', {
-      zoom: 12,
-      center: [116.397128, 39.916527], // 默认中心点(北京)
+      zoom: 11,
+      center:center, 
       viewMode: '3D'
     })
 
@@ -858,6 +884,17 @@ const initMap = async () => {
 // 添加景点标记
 const addAttractionMarkers = (AMap: any) => {
   if (!tripPlan.value) return
+
+  // 每天用不同颜色
+  const dayColors = [
+    '#FF6B6B',  // 第1天：红色
+    '#4ECDC4',  // 第2天：青色
+    '#45B7D1',  // 第3天：蓝色
+    '#96CEB4',  // 第4天：绿色
+    '#FFEAA7',  // 第5天：黄色
+    '#DDA0DD',  // 第6天：紫色
+    '#98D8C8',  // 第7天：薄荷绿
+  ]
 
   const markers: any[] = []
   const allAttractions: any[] = []
@@ -877,11 +914,12 @@ const addAttractionMarkers = (AMap: any) => {
 
   // 创建标记
   allAttractions.forEach((attraction, index) => {
+    const dayColor = DAY_COLORS[attraction.dayIndex % DAY_COLORS.length]
     const marker = new AMap.Marker({
       position: [attraction.location.longitude, attraction.location.latitude],
       title: attraction.name,
       label: {
-        content: `<div style="background: #4CAF50; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">${index + 1}</div>`,
+        content: `<div style="background: ${dayColor}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">Day${attraction.dayIndex + 1}-${index + 1}</div>`,
         offset: new AMap.Pixel(0, -30)
       }
     })
@@ -934,7 +972,7 @@ const drawRoutes = (AMap: any, attractions: any[]) => {
   })
 
   // 为每天的景点绘制路线
-  Object.values(dayGroups).forEach((dayAttractions: any) => {
+  Object.entries(dayGroups).forEach(([dayIndex, dayAttractions]: [string, any]) => {
     if (dayAttractions.length < 2) return
 
     const path = dayAttractions.map((attr: any) => [
@@ -942,9 +980,10 @@ const drawRoutes = (AMap: any, attractions: any[]) => {
       attr.location.latitude
     ])
 
+    const dayColor = DAY_COLORS[Number(dayIndex) % DAY_COLORS.length]
     const polyline = new AMap.Polyline({
       path: path,
-      strokeColor: '#1890ff',
+      strokeColor: dayColor,
       strokeWeight: 4,
       strokeOpacity: 0.8,
       strokeStyle: 'solid',
@@ -957,6 +996,34 @@ const drawRoutes = (AMap: any, attractions: any[]) => {
 </script>
 
 <style scoped>
+.map-legend {
+  display: flex;
+  gap: 12px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.legend-text {
+  font-size: 12px;
+  color: #333;
+}
+
 .result-container {
   min-height: 100vh;
   background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
@@ -975,6 +1042,11 @@ const drawRoutes = (AMap: any, attractions: any[]) => {
 .back-button {
   border-radius: 8px;
   font-weight: 500;
+}
+
+.generated-time {
+  color: #999;
+  font-size: 12px;
 }
 
 /* 内容布局 */

@@ -1,5 +1,6 @@
 """LLM服务模块"""
 
+import os
 from hello_agents import HelloAgentsLLM
 from ..config import get_settings
 
@@ -21,7 +22,11 @@ def get_llm() -> HelloAgentsLLM:
         
         # HelloAgentsLLM会自动从环境变量读取配置
         # 包括OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL等
-        _llm_instance = HelloAgentsLLM()
+        _llm_instance = HelloAgentsLLM( api_key=os.getenv("LLM_API_KEY"),
+    base_url=os.getenv("LLM_BASE_URL"),
+    model=os.getenv("LLM_MODEL_ID"),
+    provider="custom",
+     timeout=120)
         
         print(f"✅ LLM服务初始化成功")
         print(f"   提供商: {_llm_instance.provider}")
