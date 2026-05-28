@@ -316,7 +316,8 @@ class MultiAgentTripPlanner:
 
         # 直接返回工具调用格式
         query = f"请使用amap_maps_text_search工具搜索{request.city}的{keywords}相关景点。\n[TOOL_CALL:amap_maps_text_search:keywords={keywords},city={request.city}]\n\n请将搜索结果按照以下格式输出，每个景点单独一行，只列出知名度高、独立售票或有明确地址的景点，不要列出公园内部的小景点名称：\n1. 景点名称\n2. 景点名称"
-    
+        return query
+
     def _extract_attraction_names(self, attraction_response: str) -> list:
         """从景点搜索Agent的响应中提取景点名称列表，兼容多种格式"""
         import re
